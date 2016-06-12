@@ -69,10 +69,10 @@ namespace PredictionMarketBot
                     await Add(simulator, command.Skip(1));
                     break;
                 case "start":
-                    simulator.Start();
+                    await simulator.Start();
                     break;
                 case "stop":
-                    simulator.Stop();
+                    await simulator.Stop();
                     break;
                 case "buy":
                     await Buy(simulator, command.Skip(1));
