@@ -14,6 +14,7 @@ namespace PredictionMarketBot.Migrations
                         Id = c.Int(nullable: false, identity: true),
                         Name = c.String(),
                         Liquidity = c.Double(nullable: false),
+                        IsRunning = c.Boolean(nullable: false),
                     })
                 .PrimaryKey(t => t.Id);
             
@@ -23,6 +24,7 @@ namespace PredictionMarketBot.Migrations
                     {
                         Id = c.Int(nullable: false, identity: true),
                         MarketId = c.Int(nullable: false),
+                        DiscordId = c.String(),
                         Name = c.String(),
                         Money = c.Double(nullable: false),
                     })
@@ -36,14 +38,14 @@ namespace PredictionMarketBot.Migrations
                     {
                         Id = c.Int(nullable: false, identity: true),
                         StockId = c.Int(nullable: false),
+                        PlayerId = c.Int(nullable: false),
                         Amount = c.Int(nullable: false),
-                        Player_Id = c.Int(),
                     })
                 .PrimaryKey(t => t.Id)
-                .ForeignKey("dbo.Stocks", t => t.StockId, cascadeDelete: true)
-                .ForeignKey("dbo.Players", t => t.Player_Id)
+                .ForeignKey("dbo.Players", t => t.PlayerId)
+                .ForeignKey("dbo.Stocks", t => t.StockId)
                 .Index(t => t.StockId)
-                .Index(t => t.Player_Id);
+                .Index(t => t.PlayerId);
             
             CreateTable(
                 "dbo.Stocks",
@@ -52,7 +54,6 @@ namespace PredictionMarketBot.Migrations
                         Id = c.Int(nullable: false, identity: true),
                         MarketId = c.Int(nullable: false),
                         Name = c.String(),
-                        NumberSold = c.Int(nullable: false),
                     })
                 .PrimaryKey(t => t.Id)
                 .ForeignKey("dbo.Markets", t => t.MarketId, cascadeDelete: true)
@@ -62,12 +63,12 @@ namespace PredictionMarketBot.Migrations
         
         public override void Down()
         {
-            DropForeignKey("dbo.Shares", "Player_Id", "dbo.Players");
             DropForeignKey("dbo.Shares", "StockId", "dbo.Stocks");
             DropForeignKey("dbo.Stocks", "MarketId", "dbo.Markets");
+            DropForeignKey("dbo.Shares", "PlayerId", "dbo.Players");
             DropForeignKey("dbo.Players", "MarketId", "dbo.Markets");
             DropIndex("dbo.Stocks", new[] { "MarketId" });
-            DropIndex("dbo.Shares", new[] { "Player_Id" });
+            DropIndex("dbo.Shares", new[] { "PlayerId" });
             DropIndex("dbo.Shares", new[] { "StockId" });
             DropIndex("dbo.Players", new[] { "MarketId" });
             DropTable("dbo.Stocks");

@@ -37,6 +37,10 @@
       <HintPath>..\packages\Discord.Net.0.9.3.1\lib\net45\Discord.Net.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Discord.Net.Commands, Version=0.9.3.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Discord.Net.Commands.0.9.3\lib\net45\Discord.Net.Commands.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="EntityFramework, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
       <HintPath>..\packages\EntityFramework.6.1.3\lib\net45\EntityFramework.dll</HintPath>
       <Private>True</Private>
@@ -67,6 +71,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.DataAnnotations" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -80,6 +85,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Bot.cs" />
+    <Compile Include="ClientExtensions.cs" />
     <Compile Include="IMarketScoringRule.cs" />
     <Compile Include="MarketModels\Market.cs" />
     <Compile Include="MarketModels\MarketContext.cs" />
@@ -88,13 +95,9 @@
     <Compile Include="MarketModels\Stock.cs" />
     <Compile Include="LogarithmicMarketScoringRule.cs" />
     <Compile Include="MarketSimulator.cs" />
-    <Compile Include="Migrations\201606112252026_InitialMigration.cs" />
-    <Compile Include="Migrations\201606112252026_InitialMigration.Designer.cs">
-      <DependentUpon>201606112252026_InitialMigration.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Migrations\201606120151479_AddIsRunningFlag.cs" />
-    <Compile Include="Migrations\201606120151479_AddIsRunningFlag.Designer.cs">
-      <DependentUpon>201606120151479_AddIsRunningFlag.cs</DependentUpon>
+    <Compile Include="Migrations\201606130001556_InitialMigration.cs" />
+    <Compile Include="Migrations\201606130001556_InitialMigration.Designer.cs">
+      <DependentUpon>201606130001556_InitialMigration.cs</DependentUpon>
     </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Program.cs" />
@@ -105,13 +108,13 @@
     <None Include="App.config" />
     <None Include="bundleconfig.json" />
     <None Include="packages.config" />
+    <None Include="secrets.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Migrations\201606112252026_InitialMigration.resx">
-      <DependentUpon>201606112252026_InitialMigration.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Migrations\201606120151479_AddIsRunningFlag.resx">
-      <DependentUpon>201606120151479_AddIsRunningFlag.cs</DependentUpon>
+    <EmbeddedResource Include="Migrations\201606130001556_InitialMigration.resx">
+      <DependentUpon>201606130001556_InitialMigration.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

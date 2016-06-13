@@ -10,5 +10,22 @@ namespace PredictionMarketBot.MarketModels
         public DbSet<Share> Shares { get; set; }
 
         public MarketContext() : base("DefaultConnection") { }
+
+        protected override void OnModelCreating(DbModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<Share>()
+                .HasRequired(s => s.Stock)
+                .WithMany(s => s.Shares)
+                .HasForeignKey(k => k.StockId)
+                .WillCascadeOnDelete(false);
+
+            modelBuilder.Entity<Share>()
+                .HasRequired(s => s.Player)
+                .WithMany(p => p.Shares)
+                .HasForeignKey(k => k.PlayerId)
+                .WillCascadeOnDelete(false);
+
+            base.OnModelCreating(modelBuilder);
+        }
     }
 }

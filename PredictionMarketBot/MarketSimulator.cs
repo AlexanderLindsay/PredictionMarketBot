@@ -25,20 +25,28 @@ namespace PredictionMarketBot
             Market = Context.Markets.FirstOrDefault(m => m.Id == marketId);
             if (Market == null)
             {
-                throw new ArgumentException("No marker found with Id " + marketId);
+                throw new ArgumentException($"No marker found with Id {marketId}");
             }
         }
 
-        public async Task Start()
+        public async Task<bool> Start()
         {
+            if (Market.IsRunning)
+                return false;
+
             Market.IsRunning = true;
             await Context.SaveChangesAsync();
+            return true;
         }
 
-        public async Task Stop()
+        public async Task<bool> Stop()
         {
+            if (!Market.IsRunning)
+                return false;
+
             Market.IsRunning = false;
             await Context.SaveChangesAsync();
+            return true;
         }
 
         public async Task AddStockAsync(Stock stock)
@@ -51,6 +59,8 @@ namespace PredictionMarketBot
             stock.MarketId = Market.Id;
             Context.Stocks.Add(stock);
             await Context.SaveChangesAsync();
+            await Context.Entry(stock).ReloadAsync();
+            await Context.Entry(Market).ReloadAsync();
         }
 
         public async Task AddPlayerAsync(Player player)
@@ -59,17 +69,25 @@ namespace PredictionMarketBot
             player.MarketId = Market.Id;
             Context.Players.Add(player);
             await Context.SaveChangesAsync();
+            await Context.Entry(player).ReloadAsync();
+            await Context.Entry(Market).ReloadAsync();
+        }
+
+        public Player GetDiscordPlayer(string discordId)
+        {
+            var player = Market.Players.FirstOrDefault(p => p.DiscordId == discordId);
+            return player;
         }
 
         private Player GetPlayer(int playerId)
         {
-            var slayer = Market.Players.FirstOrDefault(p => p.Id == playerId);
-            if (slayer == null)
+            var player = Market.Players.FirstOrDefault(p => p.Id == playerId);
+            if (player == null)
             {
-                throw new ArgumentException("No player found with Id " + playerId);
+                throw new ArgumentException($"No player found with Id {playerId}");
             }
 
-            return slayer;
+            return player;
         }
 
         private Stock GetStock(int stockId)
@@ -77,7 +95,7 @@ namespace PredictionMarketBot
             var stock = Market.Stocks.FirstOrDefault(s => s.Id == stockId);
             if (stock == null)
             {
-                throw new ArgumentException("No stock found with Id " + stockId);
+                throw new ArgumentException($"No stock found with Id {stockId}");
             }
 
             return stock;
@@ -141,7 +159,7 @@ namespace PredictionMarketBot
             if (player.Money < cost)
             {
                 result.Success = false;
-                result.Message = string.Format("Not enough money to buy shares. Cost: {0}", cost);
+                result.Message = $"Not enough money to buy shares. Cost: {cost}";
                 return result;
             }
 
@@ -153,10 +171,10 @@ namespace PredictionMarketBot
             }
 
             currentShare.Amount += amount;
-            stock.NumberSold += amount;
             player.Money -= cost;
 
             await Context.SaveChangesAsync();
+            await Context.Entry(Market).ReloadAsync();
             result.Success = true;
             result.Value = cost;
             return result;
@@ -173,7 +191,7 @@ namespace PredictionMarketBot
                 {
                     Id = stock.Id,
                     Name = stock.Name,
-                    NumberSold = stock.NumberSold,
+                    Shares = stock.Shares.ToList(),
                     CurrentPrice = price
                 })
                 .Zip(probability, (stock, p) =>

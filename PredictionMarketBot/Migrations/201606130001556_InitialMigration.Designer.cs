@@ -13,7 +13,7 @@ namespace PredictionMarketBot.Migrations
         
         string IMigrationMetadata.Id
         {
-            get { return "201606112252026_InitialMigration"; }
+            get { return "201606130001556_InitialMigration"; }
         }
         
         string IMigrationMetadata.Source
