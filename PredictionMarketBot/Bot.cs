@@ -97,6 +97,33 @@ namespace PredictionMarketBot
                     await ListStocks(reply);
                 });
 
+            service.CreateCommand("info")
+                .Description("prints info about a player.")
+                .Parameter("player", ParameterType.Optional)
+                .Do((e) =>
+                {
+                    Player player;
+
+                    var name = e.GetArg("player");
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        player = Simulator.GetPlayerByName(name);
+                    }
+                    else
+                    {
+                        player = Simulator.GetDiscordPlayer(e.User.Id.ToString());
+                    }
+
+                    if(player == null)
+                    {
+                        Client.Reply(e, "No such player.");
+                        return;
+                    }
+
+                    var playerInfo = DisplayPlayerInfo(player);
+                    Client.Reply(e, playerInfo);
+                });
+
             service.CreateCommand("open")
                 .Description("Opens the market for buying and selling, but the stocks can no longer be changed.")
                 .AddCheck((command, user, channel) => user.Server.Owner.Id == user.Id,
@@ -133,7 +160,7 @@ namespace PredictionMarketBot
 
             service.CreateCommand("add stock")
                 .Description("Adds a stock to the current market. Only works if the market is closed.")
-                .Parameter("name", ParameterType.Required)
+                .Parameter("name", ParameterType.Unparsed)
                 .AddCheck((command, user, channel) => user.Server.Owner.Id == user.Id,
                     "Only the server owner can add stocks")
                 .Do(async (e) =>
@@ -243,6 +270,18 @@ namespace PredictionMarketBot
             await reply(builder.ToString());
         }
 
+        private string DisplayPlayerInfo(Player player)
+        {
+            if (player == null)
+                return "";
+
+            var shares = player.Shares
+                    .Aggregate("", (str, share) => str += string.Format("{0}:{1}|", share.Stock.Name, share.Amount))
+                    .Trim('|');
+
+            return $"**Player** {player.Name}\n**Funds** {player.Money:C}\n**Shares** {shares}";
+        }
+
         private async Task ListPlayers(Func<string, Task> reply)
         {
             var builder = new StringBuilder();
@@ -257,11 +296,7 @@ namespace PredictionMarketBot
 
             foreach (var player in players)
             {
-                builder.AppendFormat("**Player** {0}\n", player.Name);
-                builder.AppendFormat("**Funds** {0:C}\n", player.Money);
-                builder.AppendFormat("**Shares** {0}\n", player.Shares
-                    .Aggregate("", (str, share) => str += string.Format("{0}:{1}|", share.Stock.Name, share.Amount))
-                    .Trim('|'));
+                builder.AppendLine(DisplayPlayerInfo(player));
                 builder.AppendLine();
             }
 

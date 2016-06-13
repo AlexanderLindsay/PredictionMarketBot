@@ -79,6 +79,12 @@ namespace PredictionMarketBot
             return player;
         }
 
+        public Player GetPlayerByName(string name)
+        {
+            var player = Market.Players.FirstOrDefault(p => p.Name == name);
+            return player;
+        }
+
         private Player GetPlayer(int playerId)
         {
             var player = Market.Players.FirstOrDefault(p => p.Id == playerId);
