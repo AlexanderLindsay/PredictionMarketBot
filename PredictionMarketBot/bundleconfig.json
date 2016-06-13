@@ -4,5 +4,11 @@
     "inputFiles": [
       "MarketModels/Stock.cs"
     ]
+  },
+  {
+    "outputFileName": "secrets.config",
+    "inputFiles": [
+      "secrets.config"
+    ]
   }
 ]

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace PredictionMarketBot
@@ -28,7 +29,14 @@ namespace PredictionMarketBot
 
             Client.UsingCommands(c =>
             {
-                c.PrefixChar = '$';
+                c.CustomPrefixHandler = (msg) =>
+                {
+                    if (msg.User.IsBot)
+                        return -1;
+
+                    var isMatch = Regex.IsMatch(msg.Text, @"^\$market");
+                    return 7;
+                };
                 c.AllowMentionPrefix = true;
                 c.HelpMode = HelpMode.Public;
                 c.ExecuteHandler = OnCommandExecuted;
@@ -62,6 +70,28 @@ namespace PredictionMarketBot
         private void CreateCommands()
         {
             var service = Client.GetService<CommandService>();
+
+            service.CreateCommand("info")
+                .Description("displays information about the bot.")
+                .Do(async (e) =>
+                {
+                    var botName = "Prediction Market Bot v0.1.0";
+                    var discordVersion = typeof(DiscordClient).Assembly.GetName().Version;
+                    var discordInfo = $"Build using Discord.NET {discordVersion}";
+                    var helpInfo = "type `$market help` for information on how to use the bot";
+                    var aboutInfo = "type `$market about` for a description of what the bot does";
+
+                    var msg = $"{botName}\n{discordInfo}\n{aboutInfo}\n{helpInfo}";
+                    await Client.Reply(e, msg);
+                });
+
+            service.CreateCommand("about")
+                .Description("describes what the bot does.")
+                .Do(async (e) =>
+                {
+                    var msg = "Runs a prediction market(https://en.wikipedia.org/wiki/Prediction_market) and allows users to buy and sell stocks on the market.";
+                    await Client.Reply(e, msg);
+                });
 
             service.CreateCommand("list")
                 .Description("prints the list players and stocks.")
@@ -97,14 +127,14 @@ namespace PredictionMarketBot
                     await ListStocks(reply);
                 });
 
-            service.CreateCommand("info")
+            service.CreateCommand("player")
                 .Description("prints info about a player.")
-                .Parameter("player", ParameterType.Optional)
+                .Parameter("name", ParameterType.Optional)
                 .Do((e) =>
                 {
                     Player player;
 
-                    var name = e.GetArg("player");
+                    var name = e.GetArg("name");
                     if (!string.IsNullOrEmpty(name))
                     {
                         player = Simulator.GetPlayerByName(name);
