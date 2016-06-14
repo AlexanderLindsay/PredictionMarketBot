@@ -13,7 +13,7 @@ namespace PredictionMarketBot
                 var market = context.Markets.FirstOrDefault();
                 if (market == null)
                 {
-                    market = new Market() { Liquidity = 100.0, IsRunning = false };
+                    market = new Market() { Liquidity = 100.0, SeedMoney = 500.0, IsRunning = false };
                     context.Markets.Add(market);
                     context.SaveChanges();
                     context.Entry(market).Reload();

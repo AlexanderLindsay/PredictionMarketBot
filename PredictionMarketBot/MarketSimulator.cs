@@ -1,4 +1,5 @@
-﻿using PredictionMarketBot.MarketModels;
+﻿using PredictionMarketBot.InfoModels;
+using PredictionMarketBot.MarketModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,40 +50,81 @@ namespace PredictionMarketBot
             return true;
         }
 
-        public async Task AddStockAsync(Stock stock)
+        public async Task<StockInfo> AddStockAsync(StockInfo stock)
         {
             if (Market.IsRunning)
             {
                 throw new InvalidOperationException("Can't add stocks once the market is running");
             }
-            Market.Stocks.Add(stock);
-            stock.MarketId = Market.Id;
-            Context.Stocks.Add(stock);
+
+            var s = new Stock
+            {
+                Name = stock.Name,
+                MarketId = Market.Id
+            };
+
+            Market.Stocks.Add(s);
+            Context.Stocks.Add(s);
             await Context.SaveChangesAsync();
-            await Context.Entry(stock).ReloadAsync();
+            await Context.Entry(s).ReloadAsync();
             await Context.Entry(Market).ReloadAsync();
+            return ToInfo(s);
         }
 
-        public async Task AddPlayerAsync(Player player)
+        public async Task<PlayerInfo> AddPlayerAsync(PlayerInfo player, string discordId)
         {
-            Market.Players.Add(player);
-            player.MarketId = Market.Id;
-            Context.Players.Add(player);
+            var p = new Player
+            {
+                MarketId = Market.Id,
+                Name = player.Name,
+                Money = Market.SeedMoney,
+                DiscordId = discordId
+            };
+
+            Market.Players.Add(p);
+            Context.Players.Add(p);
             await Context.SaveChangesAsync();
-            await Context.Entry(player).ReloadAsync();
+            await Context.Entry(p).ReloadAsync();
             await Context.Entry(Market).ReloadAsync();
+            return ToInfo(p);
         }
 
-        public Player GetDiscordPlayer(string discordId)
+        private PlayerInfo ToInfo(Player player)
+        {
+            return new PlayerInfo
+            {
+                Id = player.Id,
+                Name = player.Name,
+                Money = player.Money,
+                Shares = player.Shares.Select(share => new ShareInfo
+                {
+                    Player = player.Name,
+                    StockId = share.StockId,
+                    Stock = share.Stock.Name,
+                    Amount = share.Amount
+                }).ToList()
+            };
+        }
+
+        private StockInfo ToInfo(Stock stock)
+        {
+            return new StockInfo
+            {
+                Id = stock.Id,
+                Name = stock.Name
+            };
+        }
+
+        public PlayerInfo GetDiscordPlayer(string discordId)
         {
             var player = Market.Players.FirstOrDefault(p => p.DiscordId == discordId);
-            return player;
+            return ToInfo(player);
         }
 
-        public Player GetPlayerByName(string name)
+        public PlayerInfo GetPlayerByName(string name)
         {
             var player = Market.Players.FirstOrDefault(p => p.Name == name);
-            return player;
+            return ToInfo(player);
         }
 
         private Player GetPlayer(int playerId)
@@ -147,10 +189,11 @@ namespace PredictionMarketBot
                 result.Message = "Amount to sell or buy can't be zero";
             }
 
-            var startingHoldings = Market.Stocks.Select(s => s.NumberSold);
-            var endingHoldings = Market.Stocks.Select(s =>
+            var baseHoldings = Market.Stocks.Select(s => new { Stock = s, NumberSold = s.Shares.Sum(h => h.Amount) });
+            var startingHoldings = baseHoldings.Select(s => s.NumberSold);
+            var endingHoldings = baseHoldings.Select(s =>
             {
-                if (s.Id == stock.Id)
+                if (s.Stock.Id == stock.Id)
                 {
                     return s.NumberSold + amount;
                 }
@@ -176,6 +219,13 @@ namespace PredictionMarketBot
                 player.Shares.Add(currentShare);
             }
 
+            if(currentShare.Amount + amount < 0)
+            {
+                result.Success = false;
+                result.Message = $"Not enough holding shares to sell {amount}.";
+                return result;
+            }
+
             currentShare.Amount += amount;
             player.Money -= cost;
 
@@ -186,18 +236,27 @@ namespace PredictionMarketBot
             return result;
         }
 
-        public IEnumerable<Stock> ListStocks()
+        public MarketInfo GetMarket()
         {
-            var holdings = Market.Stocks.Select(stock => stock.NumberSold);
+            return new MarketInfo
+            {
+                Name = Market.Name,
+                Description = Market.Description
+            };
+        }
+
+        public IEnumerable<StockInfo> ListStocks()
+        {
+            var holdings = Market.Stocks.Select(stock => stock.Shares.Sum(s => s.Amount));
             var prices = Rule.CurrentPrices(holdings, Market.Liquidity);
             var probability = Rule.Probabilities(holdings, Market.Liquidity);
 
             return Market.Stocks
-                .Zip(prices, (stock, price) => new Stock
+                .Zip(prices, (stock, price) => new StockInfo
                 {
                     Id = stock.Id,
                     Name = stock.Name,
-                    Shares = stock.Shares.ToList(),
+                    NumberSold = stock.Shares.Sum(s => s.Amount),
                     CurrentPrice = price
                 })
                 .Zip(probability, (stock, p) =>
@@ -207,21 +266,9 @@ namespace PredictionMarketBot
                 });
         }
 
-        public IEnumerable<Player> ListPlayers()
+        public IEnumerable<PlayerInfo> ListPlayers()
         {
-            return Market.Players.Select(player => new Player
-            {
-                Id = player.Id,
-                Name = player.Name,
-                Money = player.Money,
-                Shares = player.Shares.Select(share => new Share
-                {
-                    Id = share.Id,
-                    StockId = share.StockId,
-                    Stock = share.Stock,
-                    Amount = share.Amount
-                }).ToList()
-            });
+            return Market.Players.Select(player => ToInfo(player));
         }
     }
 }

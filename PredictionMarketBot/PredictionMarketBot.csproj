@@ -88,6 +88,10 @@
     <Compile Include="Bot.cs" />
     <Compile Include="ClientExtensions.cs" />
     <Compile Include="IMarketScoringRule.cs" />
+    <Compile Include="InfoModels\MarketInfo.cs" />
+    <Compile Include="InfoModels\PlayerInfo.cs" />
+    <Compile Include="InfoModels\ShareInfo.cs" />
+    <Compile Include="InfoModels\StockInfo.cs" />
     <Compile Include="MarketModels\Market.cs" />
     <Compile Include="MarketModels\MarketContext.cs" />
     <Compile Include="MarketModels\Player.cs" />
@@ -98,6 +102,10 @@
     <Compile Include="Migrations\201606130001556_InitialMigration.cs" />
     <Compile Include="Migrations\201606130001556_InitialMigration.Designer.cs">
       <DependentUpon>201606130001556_InitialMigration.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201606140352522_AddDescriptionToMarket.cs" />
+    <Compile Include="Migrations\201606140352522_AddDescriptionToMarket.Designer.cs">
+      <DependentUpon>201606140352522_AddDescriptionToMarket.cs</DependentUpon>
     </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Program.cs" />
@@ -115,6 +123,9 @@
   <ItemGroup>
     <EmbeddedResource Include="Migrations\201606130001556_InitialMigration.resx">
       <DependentUpon>201606130001556_InitialMigration.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201606140352522_AddDescriptionToMarket.resx">
+      <DependentUpon>201606140352522_AddDescriptionToMarket.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

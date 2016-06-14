@@ -15,15 +15,7 @@ namespace PredictionMarketBot.MarketModels
         public virtual ICollection<Share> Shares
         {
             get { return _shares ?? (_shares = new HashSet<Share>()); }
-            set { _shares = value; }
+            protected set { _shares = value; }
         }
-
-        [NotMapped]
-        public int NumberSold { get { return Shares.Sum(s => s.Amount); } }
-
-        [NotMapped]
-        public double CurrentPrice { get; set; }
-        [NotMapped]
-        public double CurrentProbability { get; set; }
     }
 }

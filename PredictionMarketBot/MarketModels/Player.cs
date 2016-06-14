@@ -15,7 +15,7 @@ namespace PredictionMarketBot.MarketModels
         public virtual ICollection<Share> Shares
         {
             get { return _shares ?? (_shares = new HashSet<Share>()); }
-            set { _shares = value; }
+            protected set { _shares = value; }
         }
     }
 }

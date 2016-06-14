@@ -1,8 +1,7 @@
 ﻿using Discord;
 using Discord.Commands;
-using PredictionMarketBot.MarketModels;
+using PredictionMarketBot.InfoModels;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -35,7 +34,10 @@ namespace PredictionMarketBot
                         return -1;
 
                     var isMatch = Regex.IsMatch(msg.Text, @"^\$market");
-                    return 7;
+                    if (isMatch)
+                        return 7;
+
+                    return -1;
                 };
                 c.AllowMentionPrefix = true;
                 c.HelpMode = HelpMode.Public;
@@ -132,7 +134,7 @@ namespace PredictionMarketBot
                 .Parameter("name", ParameterType.Optional)
                 .Do((e) =>
                 {
-                    Player player;
+                    PlayerInfo player;
 
                     var name = e.GetArg("name");
                     if (!string.IsNullOrEmpty(name))
@@ -144,7 +146,7 @@ namespace PredictionMarketBot
                         player = Simulator.GetDiscordPlayer(e.User.Id.ToString());
                     }
 
-                    if(player == null)
+                    if (player == null)
                     {
                         Client.Reply(e, "No such player.");
                         return;
@@ -195,14 +197,14 @@ namespace PredictionMarketBot
                     "Only the server owner can add stocks")
                 .Do(async (e) =>
                 {
-                    var stock = new Stock
+                    var stock = new StockInfo
                     {
                         Name = e.GetArg("name")
                     };
 
-                    await Simulator.AddStockAsync(stock);
+                    var result = await Simulator.AddStockAsync(stock);
 
-                    await Client.Reply(e, $"Stock {stock.Name} ({stock.Id}) Added.");
+                    await Client.Reply(e, $"Stock {result.Name} ({result.Id}) Added.");
                 });
 
             service.CreateCommand("buy")
@@ -300,13 +302,13 @@ namespace PredictionMarketBot
             await reply(builder.ToString());
         }
 
-        private string DisplayPlayerInfo(Player player)
+        private string DisplayPlayerInfo(PlayerInfo player)
         {
             if (player == null)
                 return "";
 
             var shares = player.Shares
-                    .Aggregate("", (str, share) => str += string.Format("{0}:{1}|", share.Stock.Name, share.Amount))
+                    .Aggregate("", (str, share) => str += string.Format("{0}:{1}|", share.Stock, share.Amount))
                     .Trim('|');
 
             return $"**Player** {player.Name}\n**Funds** {player.Money:C}\n**Shares** {shares}";
@@ -338,13 +340,11 @@ namespace PredictionMarketBot
             var player = Simulator.GetDiscordPlayer(user.Id.ToString());
             if (player == null)
             {
-                player = new Player
+                player = new PlayerInfo
                 {
-                    Name = user.Name,
-                    DiscordId = user.Id.ToString(),
-                    Money = 500
+                    Name = user.Name
                 };
-                await Simulator.AddPlayerAsync(player);
+                await Simulator.AddPlayerAsync(player, user.Id.ToString());
             }
 
             var result = await Simulator.Buy(player.Id, stockId, amount);
@@ -369,13 +369,11 @@ namespace PredictionMarketBot
             var player = Simulator.GetDiscordPlayer(user.Id.ToString());
             if (player == null)
             {
-                player = new Player
+                player = new PlayerInfo
                 {
-                    Name = user.Name,
-                    DiscordId = user.Id.ToString(),
-                    Money = 500
+                    Name = user.Name
                 };
-                await Simulator.AddPlayerAsync(player);
+                await Simulator.AddPlayerAsync(player, user.Id.ToString());
             }
 
             var result = await Simulator.Sell(player.Id, stockId, amount);
