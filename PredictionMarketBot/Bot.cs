@@ -95,6 +95,16 @@ namespace PredictionMarketBot
                     await Client.Reply(e, msg);
                 });
 
+            service.CreateCommand("current")
+                .Description("displays information about the current market.")
+                .Do(async (e) =>
+                {
+                    var market = Simulator.GetMarket();
+                    var msg = $"**{market.Name}**\n{market.Description}";
+                    await Client.Reply(e, msg);
+                    await ListStocks(async (m) => await Client.Reply(e, m));
+                });
+
             service.CreateCommand("list")
                 .Description("prints the list players and stocks.")
                 .Do(async (e) =>
