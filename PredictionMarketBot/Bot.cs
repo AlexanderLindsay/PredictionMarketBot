@@ -12,11 +12,11 @@ namespace PredictionMarketBot
     public class Bot : IDisposable
     {
         private DiscordClient Client { get; set; }
-        private MarketSimulator Simulator { get; set; }
+        private MarketsManager Manager { get; set; }
 
-        public Bot(string appName, MarketSimulator simulator)
+        public Bot(string appName, MarketsManager manager)
         {
-            Simulator = simulator;
+            Manager = manager;
 
             Client = new DiscordClient(c =>
             {
@@ -69,6 +69,11 @@ namespace PredictionMarketBot
             });
         }
 
+        private MarketSimulator GetSimulator(CommandEventArgs cea)
+        {
+            return Manager.GetMarket(cea.Server.Id.ToString());
+        }
+
         private void CreateCommands()
         {
             var service = Client.GetService<CommandService>();
@@ -99,44 +104,52 @@ namespace PredictionMarketBot
                 .Description("displays information about the current market.")
                 .Do(async (e) =>
                 {
-                    var market = Simulator.GetMarket();
+                    var simulator = GetSimulator(e);
+
+                    var market = simulator.GetMarketInfo();
                     var msg = $"**{market.Name}**\n{market.Description}";
                     await Client.Reply(e, msg);
-                    await ListStocks(async (m) => await Client.Reply(e, m));
+                    await ListStocks(async (m) => await Client.Reply(e, m), simulator);
                 });
 
             service.CreateCommand("list")
                 .Description("prints the list players and stocks.")
                 .Do(async (e) =>
                 {
+                    var simulator = GetSimulator(e);
+
                     Func<string, Task> reply = async (msg) =>
                     {
                         await Client.Reply(e, msg);
                     };
-                    await ListStocks(reply);
-                    await ListPlayers(reply);
+                    await ListStocks(reply, simulator);
+                    await ListPlayers(reply, simulator);
                 });
 
             service.CreateCommand("list players")
                 .Description("prints the list of players.")
                 .Do(async (e) =>
                 {
+                    var simulator = GetSimulator(e);
+
                     Func<string, Task> reply = async (msg) =>
                     {
                         await Client.Reply(e, msg);
                     };
-                    await ListPlayers(reply);
+                    await ListPlayers(reply, simulator);
                 });
 
             service.CreateCommand("list stocks")
                 .Description("prints the list of stocks.")
                 .Do(async (e) =>
                 {
+                    var simulator = GetSimulator(e);
+
                     Func<string, Task> reply = async (msg) =>
                     {
                         await Client.Reply(e, msg);
                     };
-                    await ListStocks(reply);
+                    await ListStocks(reply, simulator);
                 });
 
             service.CreateCommand("player")
@@ -144,16 +157,18 @@ namespace PredictionMarketBot
                 .Parameter("name", ParameterType.Optional)
                 .Do((e) =>
                 {
+                    var simulator = GetSimulator(e);
+
                     PlayerInfo player;
 
                     var name = e.GetArg("name");
                     if (!string.IsNullOrEmpty(name))
                     {
-                        player = Simulator.GetPlayerByName(name);
+                        player = simulator.GetPlayerByName(name);
                     }
                     else
                     {
-                        player = Simulator.GetDiscordPlayer(e.User.Id.ToString());
+                        player = simulator.GetDiscordPlayer(e.User.Id.ToString());
                     }
 
                     if (player == null)
@@ -172,7 +187,9 @@ namespace PredictionMarketBot
                     "Only the server owner can open or close the market.")
                 .Do(async (e) =>
                 {
-                    var result = await Simulator.Start();
+                    var simulator = GetSimulator(e);
+
+                    var result = await simulator.Start();
                     if (result)
                     {
                         await Client.Reply(e, "Market is open.");
@@ -189,7 +206,9 @@ namespace PredictionMarketBot
                     "Only the server owner can open or close the market.")
                 .Do(async (e) =>
                 {
-                    var result = await Simulator.Start();
+                    var simulator = GetSimulator(e);
+
+                    var result = await simulator.Start();
                     if (result)
                     {
                         await Client.Reply(e, "Market is closed.");
@@ -207,12 +226,14 @@ namespace PredictionMarketBot
                     "Only the server owner can add stocks")
                 .Do(async (e) =>
                 {
+                    var simulator = GetSimulator(e);
+
                     var stock = new StockInfo
                     {
                         Name = e.GetArg("name")
                     };
 
-                    var result = await Simulator.AddStockAsync(stock);
+                    var result = await simulator.AddStockAsync(stock);
 
                     await Client.Reply(e, $"Stock {result.Name} ({result.Id}) Added.");
                 });
@@ -249,7 +270,9 @@ namespace PredictionMarketBot
                         await Client.Reply(e, msg);
                     };
 
-                    await Buy(reply, e.User, stockId, amount);
+                    var simulator = GetSimulator(e);
+
+                    await Buy(reply, simulator, e.User, stockId, amount);
                 });
 
             service.CreateCommand("sell")
@@ -284,15 +307,17 @@ namespace PredictionMarketBot
                         await Client.Reply(e, msg);
                     };
 
-                    await Sell(reply, e.User, stockId, amount);
+                    var simulator = GetSimulator(e);
+
+                    await Sell(reply, simulator, e.User, stockId, amount);
                 });
         }
 
-        private async Task ListStocks(Func<string, Task> reply)
+        private async Task ListStocks(Func<string, Task> reply, MarketSimulator simulator)
         {
             var builder = new StringBuilder();
 
-            var stocks = Simulator.ListStocks();
+            var stocks = simulator.ListStocks();
 
             if (!stocks.Any())
             {
@@ -324,11 +349,11 @@ namespace PredictionMarketBot
             return $"**Player** {player.Name}\n**Funds** {player.Money:C}\n**Shares** {shares}";
         }
 
-        private async Task ListPlayers(Func<string, Task> reply)
+        private async Task ListPlayers(Func<string, Task> reply, MarketSimulator simulator)
         {
             var builder = new StringBuilder();
 
-            var players = Simulator.ListPlayers();
+            var players = simulator.ListPlayers();
 
             if (!players.Any())
             {
@@ -345,19 +370,19 @@ namespace PredictionMarketBot
             await reply(builder.ToString());
         }
 
-        private async Task Buy(Func<string, Task> reply, User user, int stockId, int amount)
+        private async Task Buy(Func<string, Task> reply, MarketSimulator simulator, User user, int stockId, int amount)
         {
-            var player = Simulator.GetDiscordPlayer(user.Id.ToString());
+            var player = simulator.GetDiscordPlayer(user.Id.ToString());
             if (player == null)
             {
                 player = new PlayerInfo
                 {
                     Name = user.Name
                 };
-                await Simulator.AddPlayerAsync(player, user.Id.ToString());
+                await simulator.AddPlayerAsync(player, user.Id.ToString());
             }
 
-            var result = await Simulator.Buy(player.Id, stockId, amount);
+            var result = await simulator.Buy(player.Id, stockId, amount);
             string msg = "";
 
             var shares = amount == 1 ? "share" : "shares";
@@ -374,19 +399,19 @@ namespace PredictionMarketBot
             await reply(msg);
         }
 
-        private async Task Sell(Func<string, Task> reply, User user, int stockId, int amount)
+        private async Task Sell(Func<string, Task> reply, MarketSimulator simulator, User user, int stockId, int amount)
         {
-            var player = Simulator.GetDiscordPlayer(user.Id.ToString());
+            var player = simulator.GetDiscordPlayer(user.Id.ToString());
             if (player == null)
             {
                 player = new PlayerInfo
                 {
                     Name = user.Name
                 };
-                await Simulator.AddPlayerAsync(player, user.Id.ToString());
+                await simulator.AddPlayerAsync(player, user.Id.ToString());
             }
 
-            var result = await Simulator.Sell(player.Id, stockId, amount);
+            var result = await simulator.Sell(player.Id, stockId, amount);
             string msg = "";
 
             var shares = amount == 1 ? "share" : "shares";

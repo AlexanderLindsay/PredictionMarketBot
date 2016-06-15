@@ -99,6 +99,7 @@
     <Compile Include="MarketModels\Stock.cs" />
     <Compile Include="LogarithmicMarketScoringRule.cs" />
     <Compile Include="MarketSimulator.cs" />
+    <Compile Include="MarketsManager.cs" />
     <Compile Include="Migrations\201606130001556_InitialMigration.cs" />
     <Compile Include="Migrations\201606130001556_InitialMigration.Designer.cs">
       <DependentUpon>201606130001556_InitialMigration.cs</DependentUpon>
@@ -106,6 +107,10 @@
     <Compile Include="Migrations\201606140352522_AddDescriptionToMarket.cs" />
     <Compile Include="Migrations\201606140352522_AddDescriptionToMarket.Designer.cs">
       <DependentUpon>201606140352522_AddDescriptionToMarket.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201606150414262_AddServerId.cs" />
+    <Compile Include="Migrations\201606150414262_AddServerId.Designer.cs">
+      <DependentUpon>201606150414262_AddServerId.cs</DependentUpon>
     </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Program.cs" />
@@ -126,6 +131,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\201606140352522_AddDescriptionToMarket.resx">
       <DependentUpon>201606140352522_AddDescriptionToMarket.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201606150414262_AddServerId.resx">
+      <DependentUpon>201606150414262_AddServerId.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

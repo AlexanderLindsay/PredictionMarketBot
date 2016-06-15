@@ -30,6 +30,17 @@ namespace PredictionMarketBot
             }
         }
 
+        public MarketSimulator(MarketContext context, Market market)
+            : this(new LogarithmicMarketScoringRule(), context, market)
+        { }
+
+        public MarketSimulator(IMarketScoringRule rule, MarketContext context, Market market)
+        {
+            Rule = rule;
+            Context = context;
+            Market = market;
+        }
+
         public async Task<bool> Start()
         {
             if (Market.IsRunning)
@@ -236,7 +247,7 @@ namespace PredictionMarketBot
             return result;
         }
 
-        public MarketInfo GetMarket()
+        public MarketInfo GetMarketInfo()
         {
             return new MarketInfo
             {

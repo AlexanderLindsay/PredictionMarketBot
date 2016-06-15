@@ -10,19 +10,10 @@ namespace PredictionMarketBot
         {
             using (var context = new MarketContext())
             {
-                var market = context.Markets.FirstOrDefault();
-                if (market == null)
-                {
-                    market = new Market() { Liquidity = 100.0, SeedMoney = 500.0, IsRunning = false };
-                    context.Markets.Add(market);
-                    context.SaveChanges();
-                    context.Entry(market).Reload();
-                }
-
-                var simulator = new MarketSimulator(context, market.Id);
+                var manager = new MarketsManager(context);
                 var token = ConfigurationManager.AppSettings["token"];
 
-                using (var bot = new Bot("PredictiveMarket", simulator))
+                using (var bot = new Bot("PredictiveMarket", manager))
                 {
                     bot.Start(token);
                 }
