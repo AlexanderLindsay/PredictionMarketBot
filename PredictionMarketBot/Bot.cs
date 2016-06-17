@@ -240,19 +240,23 @@ namespace PredictionMarketBot
 
             service.CreateCommand("buy")
                 .Description("Buys the given amount of the given stock.")
-                .Parameter("stock", ParameterType.Required)
                 .Parameter("amount", ParameterType.Required)
+                .Parameter("stock", ParameterType.Unparsed)
                 .Do(async (e) =>
                 {
-                    int stockId;
-                    var validStock = int.TryParse(e.GetArg("stock"), out stockId);
+                    var simulator = GetSimulator(e);
+
+                    var stockName = e.GetArg("stock");
+                    var stock = simulator.GetStockByName(stockName);
+
+                    var validStock = stock != null;
 
                     int amount;
                     var validAmount = int.TryParse(e.GetArg("amount"), out amount);
 
                     if (!validStock)
                     {
-                        await Client.Reply(e, "Expects an integer for the stock id.");
+                        await Client.Reply(e, $"Can't find a stock by that name.");
                     }
 
                     if (!validAmount)
@@ -270,19 +274,21 @@ namespace PredictionMarketBot
                         await Client.Reply(e, msg);
                     };
 
-                    var simulator = GetSimulator(e);
-
-                    await Buy(reply, simulator, e.User, stockId, amount);
+                    await Buy(reply, simulator, e.User, stock.Id, amount);
                 });
 
             service.CreateCommand("sell")
                 .Description("Sells the given amount of the given stock.")
-                .Parameter("stock", ParameterType.Required)
                 .Parameter("amount", ParameterType.Required)
+                .Parameter("stock", ParameterType.Unparsed)
                 .Do(async (e) =>
                 {
-                    int stockId;
-                    var validStock = int.TryParse(e.GetArg("stock"), out stockId);
+                    var simulator = GetSimulator(e);
+
+                    var stockName = e.GetArg("stock");
+                    var stock = simulator.GetStockByName(stockName);
+
+                    var validStock = stock != null;
 
                     int amount;
                     var validAmount = int.TryParse(e.GetArg("amount"), out amount);
@@ -307,9 +313,7 @@ namespace PredictionMarketBot
                         await Client.Reply(e, msg);
                     };
 
-                    var simulator = GetSimulator(e);
-
-                    await Sell(reply, simulator, e.User, stockId, amount);
+                    await Sell(reply, simulator, e.User, stock.Id, amount);
                 });
         }
 
@@ -327,10 +331,10 @@ namespace PredictionMarketBot
 
             foreach (var stock in stocks)
             {
-                builder.AppendFormat("**Stock** {0} ({1}):\n", stock.Name, stock.Id);
-                builder.AppendFormat("**Shares Owned** {0}\n", stock.NumberSold);
-                builder.AppendFormat("**Current Price** {0:C}\n", stock.CurrentPrice);
-                builder.AppendFormat("**Probability** {0:F4}\n", stock.CurrentProbability);
+                builder.AppendLine($"**Stock** {stock.Name}");
+                builder.AppendLine($"**Shares Owned** {stock.NumberSold}");
+                builder.AppendLine($"**Current Price** {stock.CurrentPrice:C}");
+                builder.AppendLine($"**Probability** {stock.CurrentProbability:F4}");
                 builder.AppendLine();
             }
 
@@ -343,7 +347,7 @@ namespace PredictionMarketBot
                 return "";
 
             var shares = player.Shares
-                    .Aggregate("", (str, share) => str += string.Format("{0}:{1}|", share.Stock, share.Amount))
+                    .Aggregate("", (str, share) => str += $"{share.Stock}:{share.Amount}|")
                     .Trim('|');
 
             return $"**Player** {player.Name}\n**Funds** {player.Money:C}\n**Shares** {shares}";

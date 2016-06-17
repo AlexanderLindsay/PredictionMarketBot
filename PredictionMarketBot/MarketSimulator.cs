@@ -68,6 +68,13 @@ namespace PredictionMarketBot
                 throw new InvalidOperationException("Can't add stocks once the market is running");
             }
 
+            //If duplicate stock names within a market
+            var existing = Market.Stocks.FirstOrDefault(st => st.Name == stock.Name);
+            if(existing != null)
+            {
+                return ToInfo(existing);
+            }
+
             var s = new Stock
             {
                 Name = stock.Name,
@@ -102,6 +109,9 @@ namespace PredictionMarketBot
 
         private PlayerInfo ToInfo(Player player)
         {
+            if (player == null)
+                return null;
+
             return new PlayerInfo
             {
                 Id = player.Id,
@@ -119,6 +129,9 @@ namespace PredictionMarketBot
 
         private StockInfo ToInfo(Stock stock)
         {
+            if (stock == null)
+                return null;
+
             return new StockInfo
             {
                 Id = stock.Id,
@@ -134,7 +147,7 @@ namespace PredictionMarketBot
 
         public PlayerInfo GetPlayerByName(string name)
         {
-            var player = Market.Players.FirstOrDefault(p => p.Name == name);
+            var player = Market.Players.FirstOrDefault(p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
             return ToInfo(player);
         }
 
@@ -147,6 +160,12 @@ namespace PredictionMarketBot
             }
 
             return player;
+        }
+
+        public StockInfo GetStockByName(string name)
+        {
+            var stock = Market.Stocks.FirstOrDefault(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+            return ToInfo(stock);
         }
 
         private Stock GetStock(int stockId)
