@@ -266,6 +266,15 @@ namespace PredictionMarketBot
             return result;
         }
 
+        public StockInfo Predict()
+        {
+            var prediction = ListStocks()
+                .OrderByDescending(s => s.CurrentProbability)
+                .FirstOrDefault();
+
+            return prediction;
+        }
+
         public MarketInfo GetMarketInfo()
         {
             return new MarketInfo

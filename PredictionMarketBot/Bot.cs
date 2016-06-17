@@ -112,6 +112,19 @@ namespace PredictionMarketBot
                     await ListStocks(async (m) => await Client.Reply(e, m), simulator);
                 });
 
+            service.CreateCommand("predict")
+                .Description("predicts the outcome of an event.")
+                .Do(async (e) =>
+                {
+                    var simulator = GetSimulator(e);
+                    var market = simulator.GetMarketInfo();
+
+                    var result = simulator.Predict();
+
+                    var msg = $"**{market.Description}** {result.Name} ({result.CurrentProbability:P})";
+                    await Client.Reply(e, msg);
+                });
+
             service.CreateCommand("list")
                 .Description("prints the list players and stocks.")
                 .Do(async (e) =>
