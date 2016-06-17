@@ -208,7 +208,7 @@ namespace PredictionMarketBot
                 {
                     var simulator = GetSimulator(e);
 
-                    var result = await simulator.Start();
+                    var result = await simulator.Stop();
                     if (result)
                     {
                         await Client.Reply(e, "Market is closed.");
