@@ -4,6 +4,7 @@ namespace PredictionMarketBot.MarketModels
 {
     public class MarketContext : DbContext
     {
+        public DbSet<ActiveMarket> ActiveMarkets { get; set; }
         public DbSet<Market> Markets { get; set; }
         public DbSet<Player> Players { get; set; }
         public DbSet<Stock> Stocks { get; set; }

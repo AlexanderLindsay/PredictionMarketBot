@@ -92,6 +92,7 @@
     <Compile Include="InfoModels\PlayerInfo.cs" />
     <Compile Include="InfoModels\ShareInfo.cs" />
     <Compile Include="InfoModels\StockInfo.cs" />
+    <Compile Include="MarketModels\ActiveMarket.cs" />
     <Compile Include="MarketModels\Market.cs" />
     <Compile Include="MarketModels\MarketContext.cs" />
     <Compile Include="MarketModels\Player.cs" />
@@ -119,6 +120,10 @@
     <Compile Include="Migrations\201606170322461_RequirePlayerName.cs" />
     <Compile Include="Migrations\201606170322461_RequirePlayerName.Designer.cs">
       <DependentUpon>201606170322461_RequirePlayerName.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Migrations\201606170341111_AddActiveMarkets.cs" />
+    <Compile Include="Migrations\201606170341111_AddActiveMarkets.Designer.cs">
+      <DependentUpon>201606170341111_AddActiveMarkets.cs</DependentUpon>
     </Compile>
     <Compile Include="Migrations\Configuration.cs" />
     <Compile Include="Program.cs" />
@@ -148,6 +153,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Migrations\201606170322461_RequirePlayerName.resx">
       <DependentUpon>201606170322461_RequirePlayerName.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Migrations\201606170341111_AddActiveMarkets.resx">
+      <DependentUpon>201606170341111_AddActiveMarkets.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

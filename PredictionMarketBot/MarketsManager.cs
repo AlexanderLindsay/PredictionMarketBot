@@ -1,5 +1,7 @@
 ﻿using PredictionMarketBot.MarketModels;
+using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace PredictionMarketBot
 {
@@ -14,13 +16,22 @@ namespace PredictionMarketBot
 
         public MarketSimulator GetMarket(string serverId)
         {
-            var market = Context.Markets.FirstOrDefault(m => m.ServerId == serverId);
-            if(market == null)
+            var active = Context.ActiveMarkets.FirstOrDefault(ma => ma.ServerId == serverId);
+            if (active == null)
             {
                 return null;
             }
 
-            return new MarketSimulator(Context, market);
+            return new MarketSimulator(Context, active.Market);
+        }
+
+        private Market GetMarketByName(string serverId, string name)
+        {
+            var market = Context.Markets
+                .Where(m => m.ServerId == serverId)
+                .FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+
+            return market;
         }
 
         public MarketSimulator CreateMarket(string serverId, string name, string description, double money, double liquidity = 100.0)
@@ -36,6 +47,28 @@ namespace PredictionMarketBot
             Context.Markets.Add(market);
 
             return new MarketSimulator(Context, market);
+        }
+
+        public async Task SetActiveMarket(string serverId, string name)
+        {
+            var market = GetMarketByName(serverId, name);
+
+            if (market == null)
+                throw new InvalidOperationException("No market found by that name.");
+
+            var active = Context.ActiveMarkets.FirstOrDefault(ma => ma.ServerId == serverId);
+            if (active == null)
+            {
+                active = new ActiveMarket
+                {
+                    ServerId = serverId,
+                };
+                Context.ActiveMarkets.Add(active);
+            }
+
+            active.MarketId = market.Id;
+
+            await Context.SaveChangesAsync();
         }
     }
 }
