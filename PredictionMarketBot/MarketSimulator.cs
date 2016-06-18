@@ -70,7 +70,7 @@ namespace PredictionMarketBot
 
             //If duplicate stock names within a market
             var existing = Market.Stocks.FirstOrDefault(st => st.Name == stock.Name);
-            if(existing != null)
+            if (existing != null)
             {
                 return ToInfo(existing);
             }
@@ -213,7 +213,7 @@ namespace PredictionMarketBot
                 Stock = stock.Name
             };
 
-            if(amount == 0)
+            if (amount == 0)
             {
                 result.Success = false;
                 result.Message = "Amount to sell or buy can't be zero";
@@ -249,7 +249,7 @@ namespace PredictionMarketBot
                 player.Shares.Add(currentShare);
             }
 
-            if(currentShare.Amount + amount < 0)
+            if (currentShare.Amount + amount < 0)
             {
                 result.Success = false;
                 result.Message = $"Not enough holding shares to sell {amount}.";
@@ -264,6 +264,57 @@ namespace PredictionMarketBot
             result.Success = true;
             result.Value = cost;
             return result;
+        }
+
+        public int GetAffordableAmount(int playerId, int stockId)
+        {
+            var player = GetPlayer(playerId);
+            var stock = ListStocks().FirstOrDefault(s => s.Id == stockId);
+
+            if (stock == null)
+            {
+                throw new ArgumentException($"No stock found with Id {stockId}");
+            }
+
+            if(player.Money < stock.CurrentPrice)
+            {
+                throw new ArgumentException("Player can't afford any stock");
+            }
+
+            var amount = (int)Math.Floor(player.Money / stock.CurrentPrice);
+
+            var baseHoldings = Market.Stocks.Select(s => new { Stock = s, NumberSold = s.Shares.Sum(h => h.Amount) });
+            var startingHoldings = baseHoldings.Select(s => s.NumberSold);
+
+            var validCost = false;
+
+            while (!validCost)
+            {
+                var endingHoldings = baseHoldings.Select(s =>
+                {
+                    if (s.Stock.Id == stock.Id)
+                    {
+                        return s.NumberSold + amount;
+                    }
+                    else
+                    {
+                        return s.NumberSold;
+                    }
+                });
+
+                var cost = Rule.CalculateChange(startingHoldings, endingHoldings, Market.Liquidity);
+                validCost = cost < player.Money;
+                if (!validCost)
+                {
+                    amount--;
+                    if(amount <= 0)
+                    {
+                        throw new ArgumentException("Player can't afford any stock");
+                    }
+                }
+            }
+
+            return amount;
         }
 
         public StockInfo Predict()
