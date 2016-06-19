@@ -7,7 +7,8 @@ namespace PredictionMarketBot
     public class LogarithmicMarketScoringRule : IMarketScoringRule
     {
         private static readonly string LiqudityException = "Liquidty should be greater than zero";
-        private static readonly string HoldingsException = "Holdings can't be null";
+        private static readonly string HoldingsNullException = "Holdings can't be null";
+        private static readonly string HoldingsEmptyException = "Holdings can't be null";
         private static readonly string HoldingException = "Each holding should be greater than or equal to zero";
 
         public double Cost(IEnumerable<int> holdings, double liquidity)
@@ -16,7 +17,10 @@ namespace PredictionMarketBot
                 throw new ArgumentOutOfRangeException(LiqudityException);
 
             if (holdings == null)
-                throw new ArgumentNullException(HoldingsException);
+                throw new ArgumentNullException(HoldingsNullException);
+
+            if(!holdings.Any())
+                throw new ArgumentNullException(HoldingsEmptyException);
 
             var sum = holdings.Aggregate(0.0, (accum, holding) =>
             {
@@ -35,10 +39,16 @@ namespace PredictionMarketBot
                 throw new ArgumentOutOfRangeException(LiqudityException);
 
             if (beginningHoldings == null)
-                throw new ArgumentNullException("Beginning " + HoldingsException);
+                throw new ArgumentNullException("Beginning " + HoldingsNullException);
+
+            if(!beginningHoldings.Any())
+                throw new ArgumentNullException("Beginning " + HoldingsEmptyException);
 
             if (endingHoldings == null)
-                throw new ArgumentNullException("Ending " + HoldingsException);
+                throw new ArgumentNullException("Ending " + HoldingsNullException);
+
+            if (!endingHoldings.Any())
+                throw new ArgumentNullException("Ending " + HoldingsEmptyException);
 
             var startingCost = Cost(beginningHoldings, liquidity);
             var endingCost = Cost(endingHoldings, liquidity);
@@ -51,7 +61,10 @@ namespace PredictionMarketBot
                 throw new ArgumentOutOfRangeException(LiqudityException);
 
             if (holdings == null)
-                throw new ArgumentNullException(HoldingsException);
+                throw new ArgumentNullException(HoldingsNullException);
+
+            if (!holdings.Any())
+                throw new ArgumentNullException(HoldingsEmptyException);
 
             return holdings.Select((holding, index) =>
             {
@@ -67,7 +80,10 @@ namespace PredictionMarketBot
                 throw new ArgumentOutOfRangeException(LiqudityException);
 
             if (holdings == null)
-                throw new ArgumentNullException(HoldingsException);
+                throw new ArgumentNullException(HoldingsNullException);
+
+            if (!holdings.Any())
+                throw new ArgumentNullException(HoldingsEmptyException);
 
             var denom = 0.0;
             foreach(var holding in holdings)
