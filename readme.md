@@ -1,4 +1,4 @@
-# Prediction Market Bot
+# [Prediction Market Bot](https://github.com/AlexanderLindsay/PredictionMarketBot)
 
 by Alexander Lindsay
 
