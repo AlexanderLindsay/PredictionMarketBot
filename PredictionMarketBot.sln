@@ -7,6 +7,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PredictionMarketBot", "Pred
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PredictionMarketBotTests", "PredictionMarketBotTests\PredictionMarketBotTests.csproj", "{2E0539F9-E01B-4D02-BCF8-92B91E2AADC5}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E082E3E0-5EC1-434D-BCA9-98147DA7C3B8}"
+	ProjectSection(SolutionItems) = preProject
+		MarketIcon.png = MarketIcon.png
+		readme.md = readme.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
