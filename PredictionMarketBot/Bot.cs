@@ -1,665 +1,95 @@
 ﻿using Discord;
+using Discord.WebSocket;
 using Discord.Commands;
-using PredictionMarketBot.InfoModels;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 
 namespace PredictionMarketBot
 {
     public class Bot : IDisposable
     {
-        private DiscordClient Client { get; set; }
+        private DiscordSocketClient Client { get; set; }
+        private CommandService Commands { get; set; }
+        private IServiceProvider Services { get; set; }
         private MarketsManager Manager { get; set; }
 
         public Bot(string appName, MarketsManager manager)
         {
             Manager = manager;
 
-            Client = new DiscordClient(c =>
+            var clientConfig = new DiscordSocketConfig
             {
-                c.AppName = appName;
-                c.MessageCacheSize = 0;
-                c.LogLevel = LogSeverity.Info;
-                c.LogHandler = OnLogMessage;
-            });
+                MessageCacheSize = 0,
+                LogLevel = LogSeverity.Info
+            };
 
-            Client.UsingCommands(c =>
-            {
-                c.CustomPrefixHandler = (msg) =>
-                {
-                    if (msg.User.IsBot)
-                        return -1;
+            Commands = new CommandService();
 
-                    var isMatch = Regex.IsMatch(msg.Text, @"^\$market");
-                    if (isMatch)
-                        return 7;
+            Services = new ServiceCollection()
+                .AddSingleton(manager)
+                .BuildServiceProvider();
 
-                    return -1;
-                };
-                c.AllowMentionPrefix = true;
-                c.HelpMode = HelpMode.Public;
-                c.ExecuteHandler = OnCommandExecuted;
-                c.ErrorHandler = OnCommandError;
-            });
+            Client = new DiscordSocketClient(clientConfig);
 
-            CreateCommands();
+            Client.Log += OnLogMessage;
         }
 
-        public void Start(string token)
+        public async Task Start(string token)
         {
-            Client.ExecuteAndWait(async () =>
-            {
-                while (true)
-                {
-                    try
-                    {
-                        await Client.Connect(token);
-                        Client.SetGame("Discord.Net");
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        Client.Log.Error($"Login Failed", ex);
-                        await Task.Delay(Client.Config.FailedReconnectDelay);
-                    }
-                }
-            });
+            await InstallCommandsAsync();
+
+            await Client.LoginAsync(TokenType.Bot, token);
+            await Client.StartAsync();
+
+            await Task.Delay(-1);
         }
 
-        private MarketSimulator GetSimulator(CommandEventArgs cea)
+        private async Task InstallCommandsAsync()
         {
-            var sim = Manager.GetMarket(cea.Server.Id.ToString());
-            if (sim == null)
-            {
-                Client.Reply(cea, "No valid market; add an active market");
-            }
-
-            return sim;
+            Client.MessageReceived += HandleCommand;
+            await Commands.AddModulesAsync(Assembly.GetEntryAssembly());
         }
 
-        private void CreateCommands()
+        public async Task HandleCommand(SocketMessage messageParam)
         {
-            var service = Client.GetService<CommandService>();
-
-            service.CreateCommand("info")
-                .Description("displays information about the bot")
-                .Do(async (e) =>
-                {
-                    var botName = "Prediction Market Bot v0.1.0";
-                    var discordVersion = typeof(DiscordClient).Assembly.GetName().Version;
-                    var discordInfo = $"Build using Discord.NET {discordVersion}";
-                    var helpInfo = "type `$market help` for information on how to use the bot";
-                    var aboutInfo = "type `$market about` for a description of what the bot does";
-
-                    var msg = $"{botName}\n{discordInfo}\n{aboutInfo}\n{helpInfo}";
-                    await Client.Reply(e, msg);
-                });
-
-            service.CreateCommand("about")
-                .Description("describes what the bot does")
-                .Do(async (e) =>
-                {
-                    var msg = "Runs a prediction market(https://en.wikipedia.org/wiki/Prediction_market) and allows users to buy and sell stocks on the market.";
-                    await Client.Reply(e, msg);
-                });
-
-            service.CreateCommand("current")
-                .Description("displays information about the current market")
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    var market = simulator.GetMarketInfo();
-                    var prediction = simulator.Predict();
-
-                    var msg = $"**{market.Name}**\n{market.Description}\n**Prediction** {prediction.Name} ({prediction.CurrentProbability:P})";
-                    await Client.Reply(e, msg);
-                    await ListStocks(async (m) => await Client.Reply(e, m), simulator);
-                });
-
-            service.CreateCommand("create market")
-                .Description("creates a new market")
-                .Parameter("name", ParameterType.Required)
-                .Parameter("starting_money", ParameterType.Required)
-                .Parameter("description", ParameterType.Unparsed)
-                .AddCheck((command, user, channel) => user.Server.Owner.Id == user.Id,
-                    "Only the server owner can create a new market")
-                .Do(async (e) =>
-                {
-                    var name = e.GetArg("name");
-                    var description = e.GetArg("description");
-                    var moneyStr = e.GetArg("starting_money");
-
-                    double money;
-                    if (!double.TryParse(moneyStr, out money))
-                    {
-                        await Client.Reply(e, "Input starting money as a number. Example: 100");
-                        return;
-                    }
-
-                    var result = await Manager.CreateMarket(e.Server.Id.ToString(), name, description, money);
-
-                    var msg = result ? "Market created successfully" : "A market by that name already exists";
-                    await Client.Reply(e, msg);
-                });
-
-            service.CreateCommand("switch market")
-                .Alias("change market")
-                .Description("changes the active market")
-                .Parameter("name", ParameterType.Required)
-                .AddCheck((command, user, channel) => user.Server.Owner.Id == user.Id,
-                    "Only the server owner can change the active market")
-                .Do(async (e) =>
-                {
-                    var name = e.GetArg("name");
-
-                    var result = await Manager.SetActiveMarket(e.Server.Id.ToString(), name);
-
-                    var msg = result ? "Active market changed successfully" : "A market by that name already exists";
-                    await Client.Reply(e, msg);
-                });
-
-            service.CreateCommand("predict")
-                .Description("predicts the outcome of an event")
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    var market = simulator.GetMarketInfo();
-
-                    var result = simulator.Predict();
-
-                    var msg = $"**{market.Description}** {result.Name} ({result.CurrentProbability:P})";
-                    await Client.Reply(e, msg);
-                });
-
-            service.CreateCommand("list")
-                .Description("prints the list players and stocks")
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    Func<string, Task> reply = async (msg) =>
-                    {
-                        await Client.Reply(e, msg);
-                    };
-                    await ListStocks(reply, simulator);
-                    await ListPlayers(reply, simulator);
-                });
-
-            service.CreateCommand("list players")
-                .Description("prints the list of players")
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    Func<string, Task> reply = async (msg) =>
-                    {
-                        await Client.Reply(e, msg);
-                    };
-                    await ListPlayers(reply, simulator);
-                });
-
-            service.CreateCommand("list stocks")
-                .Description("prints the list of stocks")
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    Func<string, Task> reply = async (msg) =>
-                    {
-                        await Client.Reply(e, msg);
-                    };
-                    await ListStocks(reply, simulator);
-                });
-
-            service.CreateCommand("list markets")
-                .Alias("markets")
-                .Description("prints the list of markets")
-                .Do(async (e) =>
-                {
-                    var markets = Manager.ListMarkets(e.Server.Id.ToString());
-
-                    Func<string, Task> reply = async (msg) =>
-                    {
-                        await Client.Reply(e, msg);
-                    };
-
-                    await ListMarkets(reply, markets);
-                });
-
-            service.CreateCommand("player")
-                .Description("prints info about a player")
-                .Parameter("name", ParameterType.Optional)
-                .Do((e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    PlayerInfo player;
-
-                    var name = e.GetArg("name");
-                    if (!string.IsNullOrEmpty(name))
-                    {
-                        player = simulator.GetPlayerByName(name);
-                    }
-                    else
-                    {
-                        player = simulator.GetDiscordPlayer(e.User.Id.ToString());
-                    }
-
-                    if (player == null)
-                    {
-                        Client.Reply(e, "No such player.");
-                        return;
-                    }
-
-                    var playerInfo = DisplayPlayerInfo(player);
-                    Client.Reply(e, playerInfo);
-                });
-
-            service.CreateCommand("open")
-                .Description("opens the market for buying and selling, but the stocks can no longer be changed")
-                .AddCheck((command, user, channel) => user.Server.Owner.Id == user.Id,
-                    "Only the server owner can open or close the market")
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    var result = await simulator.Start();
-                    if (result)
-                    {
-                        await Client.Reply(e, "Market is open.");
-                    }
-                    else
-                    {
-                        await Client.Reply(e, "Market was already open.");
-                    }
-                });
-
-            service.CreateCommand("close")
-                .Description("closes the market")
-                .AddCheck((command, user, channel) => user.Server.Owner.Id == user.Id,
-                    "Only the server owner can open or close the market")
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    var result = await simulator.Stop();
-                    if (result)
-                    {
-                        await Client.Reply(e, "Market is closed.");
-                    }
-                    else
-                    {
-                        await Client.Reply(e, "Market was already closed.");
-                    }
-                });
-
-            service.CreateCommand("add stock")
-                .Description("adds a stock to the current market. Only works if the market is closed")
-                .Parameter("name", ParameterType.Unparsed)
-                .AddCheck((command, user, channel) => user.Server.Owner.Id == user.Id,
-                    "Only the server owner can add stocks")
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    var stock = new StockInfo
-                    {
-                        Name = e.GetArg("name")
-                    };
-
-                    var result = await simulator.AddStockAsync(stock);
-
-                    await Client.Reply(e, $"Stock {result.Name} Added.");
-                });
-
-            service.CreateCommand("buy")
-                .Description("buys the given amount of the given stock")
-                .Parameter("amount", ParameterType.Required)
-                .Parameter("stock", ParameterType.Unparsed)
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    var stockName = e.GetArg("stock");
-                    var stock = simulator.GetStockByName(stockName);
-
-                    var validStock = stock != null;
-
-                    int amount;
-                    var validAmount = int.TryParse(e.GetArg("amount"), out amount);
-
-                    if (!validStock)
-                    {
-                        await Client.Reply(e, "Can't find a stock by that name.");
-                    }
-
-                    if (!validAmount)
-                    {
-                        await Client.Reply(e, "Expects an integer for the amount.");
-                    }
-
-                    if (!validStock || !validAmount)
-                    {
-                        return;
-                    }
-
-                    Func<string, Task> reply = async (msg) =>
-                    {
-                        await Client.Reply(e, msg);
-                    };
-
-                    await Buy(reply, simulator, e.User, stock.Id, amount);
-                });
-
-            service.CreateCommand("buy all")
-                .Description("buys the maximum a player can afford of the given stock")
-                .Parameter("stock", ParameterType.Unparsed)
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    var stockName = e.GetArg("stock");
-                    var stock = simulator.GetStockByName(stockName);
-
-                    var validStock = stock != null;
-
-                    if (!validStock)
-                    {
-                        await Client.Reply(e, "Can't find a stock by that name.");
-                        return;
-                    }
-
-                    Func<string, Task> reply = async (msg) =>
-                    {
-                        await Client.Reply(e, msg);
-                    };
-
-                    var player = await GetPlayer(simulator, e.User);
-
-                    var amount = simulator.GetAffordableAmount(player.Id, stock.Id);
-
-                    await Buy(reply, simulator, e.User, stock.Id, amount);
-                });
-
-            service.CreateCommand("sell")
-                .Description("sells the given amount of the given stock")
-                .Parameter("amount", ParameterType.Required)
-                .Parameter("stock", ParameterType.Unparsed)
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    var stockName = e.GetArg("stock");
-                    var stock = simulator.GetStockByName(stockName);
-
-                    var validStock = stock != null;
-
-                    int amount;
-                    var validAmount = int.TryParse(e.GetArg("amount"), out amount);
-
-                    if (!validStock)
-                    {
-                        await Client.Reply(e, "Expects an integer for the stock id.");
-                    }
-
-                    if (!validAmount)
-                    {
-                        await Client.Reply(e, "Expects an integer for the amount.");
-                    }
-
-                    if (!validStock || !validAmount)
-                    {
-                        return;
-                    }
-
-                    Func<string, Task> reply = async (msg) =>
-                    {
-                        await Client.Reply(e, msg);
-                    };
-
-                    await Sell(reply, simulator, e.User, stock.Id, amount);
-                });
-
-            service.CreateCommand("sell all")
-                .Description("sells the all the shares of the given stock that the player owns")
-                .Parameter("stock", ParameterType.Unparsed)
-                .Do(async (e) =>
-                {
-                    var simulator = GetSimulator(e);
-                    if (simulator == null)
-                        return;
-
-                    var stockName = e.GetArg("stock");
-                    var stock = simulator.GetStockByName(stockName);
-
-                    var validStock = stock != null;
-
-                    if (!validStock)
-                    {
-                        await Client.Reply(e, "Expects an integer for the stock id.");
-                        return;
-                    }
-
-                    Func<string, Task> reply = async (msg) =>
-                    {
-                        await Client.Reply(e, msg);
-                    };
-
-                    await Sell(reply, simulator, e.User, stock.Id, null);
-                });
-        }
-
-        private async Task ListStocks(Func<string, Task> reply, MarketSimulator simulator)
-        {
-            var builder = new StringBuilder();
-
-            var stocks = simulator.ListStocks();
-
-            if (!stocks.Any())
-            {
-                await reply("No Stocks");
+            // Don't process the command if it was a System Message
+            var message = messageParam as SocketUserMessage;
+            if (message == null) return;
+            // Create a number to track where the prefix ends and the command begins
+            int argPos = 0;
+
+            if (message.Author.IsBot)
                 return;
-            }
 
-            foreach (var stock in stocks)
-            {
-                builder.AppendLine($"**Stock** {stock.Name}");
-                builder.AppendLine($"**Shares Owned** {stock.NumberSold}");
-                builder.AppendLine($"**Current Price** {stock.CurrentPrice:C}");
-                builder.AppendLine($"**Probability** {stock.CurrentProbability:F4}");
-                builder.AppendLine();
-            }
-
-            await reply(builder.ToString());
+            // Determine if the message is a command, based on if it starts with '!' or a mention prefix
+            if (!(message.HasStringPrefix(@"$market ", ref argPos) || message.HasMentionPrefix(Client.CurrentUser, ref argPos))) return;
+            // Create a Command Context
+            var context = new CommandContext(Client, message);
+            // Execute the command. (result does not indicate a return value, 
+            // rather an object stating if the command executed successfully)
+            var result = await Commands.ExecuteAsync(context, argPos, Services);
+            await HandleCommandResult(context, result);
         }
-
-        private string DisplayPlayerInfo(PlayerInfo player)
+        private async Task HandleCommandResult(CommandContext context, IResult result)
         {
-            if (player == null)
-                return "";
-
-            var shares = player.Shares
-                    .Aggregate("", (str, share) => str += $"{share.Stock}:{share.Amount}|")
-                    .Trim('|');
-
-            return $"**Player** {player.Name}\n**Funds** {player.Money:C}\n**Shares** {shares}";
-        }
-
-        private async Task ListPlayers(Func<string, Task> reply, MarketSimulator simulator)
-        {
-            var builder = new StringBuilder();
-
-            var players = simulator.ListPlayers();
-
-            if (!players.Any())
+            if (result.IsSuccess)
             {
-                await reply("No Players");
-                return;
-            }
-
-            foreach (var player in players)
-            {
-                builder.AppendLine(DisplayPlayerInfo(player));
-                builder.AppendLine();
-            }
-
-            await reply(builder.ToString());
-        }
-
-        private async Task ListMarkets(Func<string, Task> reply, IEnumerable<MarketInfo> markets)
-        {
-            var builder = new StringBuilder();
-
-            if (!markets.Any())
-            {
-                await reply("No Markets");
-                return;
-            }
-
-            foreach (var market in markets)
-            {
-                builder.AppendLine($"**{market.Name}** {market.Description}");
-            }
-
-            await reply(builder.ToString());
-        }
-
-        private async Task<PlayerInfo> GetPlayer(MarketSimulator simulator, User user)
-        {
-            var player = simulator.GetDiscordPlayer(user.Id.ToString());
-            if (player == null)
-            {
-                player = new PlayerInfo
-                {
-                    Name = user.Name
-                };
-                player = await simulator.AddPlayerAsync(player, user.Id.ToString());
-            }
-
-            return player;
-        }
-
-        private async Task Buy(Func<string, Task> reply, MarketSimulator simulator, User user, int stockId, int amount)
-        {
-            var player = await GetPlayer(simulator, user);
-
-            var result = await simulator.Buy(player.Id, stockId, amount);
-            string msg = "";
-
-            var shares = amount == 1 ? "share" : "shares";
-
-            if (result.Success)
-            {
-                msg = $"Player {result.Player} bought {amount} {shares} of stock {result.Stock} for {result.Value:C}";
+                await OnLogMessage(new LogMessage(LogSeverity.Info, "Command Result", $"{context.Message} ({context.User.Username})"));
             }
             else
             {
-                msg = $"Player {result.Player} failed to buy {amount} {shares} of stock {result.Stock} because: {result.Message}";
-            }
-
-            await reply(msg);
-        }
-
-        private async Task Sell(Func<string, Task> reply, MarketSimulator simulator, User user, int stockId, int? amount)
-        {
-            var player = await GetPlayer(simulator, user);
-
-            if(amount == null)
-            {
-                var stock = player.Shares.FirstOrDefault(s => s.StockId == stockId);
-                if(stock != null)
-                {
-                    amount = stock.Amount;
-                }
-            }
-
-            var result = await simulator.Sell(player.Id, stockId, amount ?? 0);
-            string msg = "";
-
-            var shares = amount == 1 ? "share" : "shares";
-
-            if (result.Success)
-            {
-                msg = $"Player {result.Player} sold {amount} {shares} of stock {result.Stock} for {result.Value:C}";
-            }
-            else
-            {
-                msg = $"Player {result.Player} failed to sell {amount} {shares} of stock {result.Stock} because: {result.Message}";
-            }
-
-            await reply(msg);
-        }
-
-        private void OnCommandError(object sender, CommandErrorEventArgs e)
-        {
-            string msg = e.Exception?.Message;
-            if (msg == null) //No exception - show a generic message
-            {
-                switch (e.ErrorType)
-                {
-                    case CommandErrorType.Exception:
-                        msg = "Unknown error.";
-                        break;
-                    case CommandErrorType.BadPermissions:
-                        msg = "You do not have permission to run this command.";
-                        break;
-                    case CommandErrorType.BadArgCount:
-                        msg = "You provided the incorrect number of arguments for this command.";
-                        break;
-                    case CommandErrorType.InvalidInput:
-                        msg = "Unable to parse your command, please check your input.";
-                        break;
-                    case CommandErrorType.UnknownCommand:
-                        msg = "Unknown command.";
-                        break;
-                }
-            }
-            if (msg != null)
-            {
-                Client.ReplyError(e, msg);
-                Client.Log.Error("Command", msg);
+                await context.Channel.SendMessageAsync(result.ErrorReason);
             }
         }
-        private void OnCommandExecuted(object sender, CommandEventArgs e)
-        {
-            Client.Log.Info("Command", $"{e.Command.Text} ({e.User.Name})");
-        }
 
-        private void OnLogMessage(object sender, LogMessageEventArgs e)
+        private Task OnLogMessage(LogMessage lm)
         {
             //Color
             ConsoleColor color;
-            switch (e.Severity)
+            switch (lm.Severity)
             {
                 case LogSeverity.Error: color = ConsoleColor.Red; break;
                 case LogSeverity.Warning: color = ConsoleColor.Yellow; break;
@@ -670,7 +100,7 @@ namespace PredictionMarketBot
 
             //Exception
             string exMessage;
-            Exception ex = e.Exception;
+            Exception ex = lm.Exception;
             if (ex != null)
             {
                 while (ex is AggregateException && ex.InnerException != null)
@@ -681,17 +111,17 @@ namespace PredictionMarketBot
                 exMessage = null;
 
             //Source
-            string sourceName = e.Source?.ToString();
+            string sourceName = lm.Source;
 
             //Text
             string text;
-            if (e.Message == null)
+            if (lm.Message == null)
             {
                 text = exMessage ?? "";
                 exMessage = null;
             }
             else
-                text = e.Message;
+                text = lm.Message;
 
             //Build message
             StringBuilder builder = new StringBuilder(text.Length + (sourceName?.Length ?? 0) + (exMessage?.Length ?? 0) + 5);
@@ -717,6 +147,8 @@ namespace PredictionMarketBot
             text = builder.ToString();
             Console.ForegroundColor = color;
             Console.WriteLine(text);
+
+            return Task.CompletedTask;
         }
 
         #region IDisposable Support
