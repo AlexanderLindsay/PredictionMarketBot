@@ -1,12 +1,16 @@
 ﻿using PredictionMarketBot.MarketModels;
 using System.Configuration;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace PredictionMarketBot
 {
     class Program
     {
-        static void Main(string[] args)
+        public static void Main(string[] args)
+            => new Program().MainAsync().GetAwaiter().GetResult();
+
+        public async Task MainAsync()
         {
             using (var context = new MarketContext())
             {
@@ -15,7 +19,7 @@ namespace PredictionMarketBot
 
                 using (var bot = new Bot("PredictiveMarket", manager))
                 {
-                    bot.Start(token);
+                    await bot.Start(token);
                 }
             }
         }
